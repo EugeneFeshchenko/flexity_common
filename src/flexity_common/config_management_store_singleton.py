@@ -7,27 +7,14 @@ import pymongo
 
 
 class ConfigManagementStoreSingleton:
-    def __init__(self, SettingsConfigsClass, logger=None, is_reader=False):
+    def __init__(self, SettingsConfigsClass, logger=None):
         self.logger = logger or logging.getLogger(__name__)
         self.config = SettingsConfigsClass().get("config-management-store")
-        self.collection_name = self.config["collection"]
-        if not is_reader:
-            metadata_mongo_schema_path = self.config["metadata-mongo-schema"]
-            self.metadata_mongo_schema = json.load(open(metadata_mongo_schema_path))
-        self.client: MongoClient = self.create_client()
-        self.db: Database = self.client.get_database(self.config["database"])
-        existing_collection_names = self.db.list_collection_names()
-        if self.collection_name in existing_collection_names:
-            self.configurations_collection = self.db.get_collection(self.collection_name)
-        elif not is_reader:
-            configurations_collection = self.db.create_collection(self.collection_name)
-            if not configurations_collection:
-                raise Exception(f"Failed create {self.collection_name} collection")
-            self.configurations_collection = configurations_collection
-        else:
-            raise Exception(f"Collection {self.collection_name} does not exist. And we are in READER mode, "
-                            f"so cant create one")
 
+        self.metadata_mongo_schema = json.load(open(self.config["metadata-mongo-schema"]))
+        self.client = self.create_client()
+        self.db = self.client.get_database(self.config["database"])
+        self.configurations_collection = self.db.get_collection(self.config["collection"])
         existing_index_names = set(self.configurations_collection.index_information())
         if '_id_' in existing_index_names:
             existing_index_names.remove('_id_')
@@ -74,12 +61,8 @@ class ConfigManagementStoreSingleton:
                     self.config["password"],
                     self.config["host"],
                     self.config["port"])
+                return MongoClient(connection_string, retryWrites=False)
 
-                try:
-                    return MongoClient(connection_string, replicaset=self.config["replicaset"], retryWrites=False)
-                except:
-                    self.logger.exception("Error intializing mongo as replicaset. Falling back to regular connection")
-                    return MongoClient(connection_string, retryWrites=False)
             elif self.config["auth"] == "tls":
                 raise Exception("not implemented")
             else:
