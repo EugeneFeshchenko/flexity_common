@@ -11,7 +11,9 @@ class ConfigManagementStoreSingleton:
         self.logger = logger or logging.getLogger(__name__)
         self.config = SettingsConfigsClass().get("config-management-store")
 
-        self.metadata_mongo_schema = json.load(open(self.config["metadata-mongo-schema"]))
+        metadata_config = self.config.get("metadata-mongo-schema")
+        if metadata_config:
+            self.metadata_mongo_schema = json.load(open(metadata_config))
         self.client = self.create_client()
         self.db = self.client.get_database(self.config["database"])
         self.configurations_collection = self.db.get_collection(self.config["collection"])
